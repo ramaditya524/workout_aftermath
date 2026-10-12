@@ -216,7 +216,7 @@ pre.share{white-space:pre-wrap;font-family:var(--f-num);font-size:12px;backgroun
 
 /* tabs */
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tabs-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(6,1fr)}
 .tab{border:0;background:transparent;padding:9px 0 8px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:600;color:var(--muted)}
 .tab svg{width:22px;height:22px}
 .tab[aria-current="page"]{color:var(--accent)}
@@ -270,7 +270,7 @@ pre.share{white-space:pre-wrap;font-family:var(--f-num);font-size:12px;backgroun
 const KEY='greensquares.v1';
 let storageOk=true;
 let S=null;
-const ui={tab:'today',date:null,calFilter:'all',range:30,period:7,sheet:null,confirm:null,q:'',pick:null,pickQty:1,pickCheat:false,showEx:false,backupText:'',copyText:'',from:null,to:null};
+const ui={tab:'today',date:null,calFilter:'all',range:30,period:7,sheet:null,confirm:null,q:'',pick:null,pickQty:1,pickCheat:false,showEx:false,backupText:'',copyText:'',from:null,to:null,askQ:'',askRange:30,askFallback:false,askPrompt:''};
 
 /* ---------- helpers ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -487,7 +487,7 @@ function applyAppearance(){
  if(p.mode==='light'||p.mode==='dark')r.setAttribute('data-theme',p.mode);
  else if(hostTheme)r.setAttribute('data-theme',hostTheme);else r.removeAttribute('data-theme');
  const tc=document.querySelector('meta[name="theme-color"]');
- if(tc){const dark=p.mode==='dark'||(p.mode!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.querySelectorAll('meta[name="theme-color"]').forEach(m=>m.setAttribute('content',dark?t.d[0]:t.l[0]))}
+ if(tc){const dark=p.mode==='dark'||(p.mode!=='light'&&!!window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);document.querySelectorAll('meta[name="theme-color"]').forEach(m=>m.setAttribute('content',dark?t.d[0]:t.l[0]))}
 }
 
 /* ---------- UI bits ---------- */
@@ -498,10 +498,11 @@ const ICON={
  calendar:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="5" height="5" rx="1.2"/><rect x="9.5" y="3" width="5" height="5" rx="1.2" opacity=".5"/><rect x="16" y="3" width="5" height="5" rx="1.2"/><rect x="3" y="9.5" width="5" height="5" rx="1.2" opacity=".5"/><rect x="9.5" y="9.5" width="5" height="5" rx="1.2"/><rect x="16" y="9.5" width="5" height="5" rx="1.2" opacity=".3"/><rect x="3" y="16" width="5" height="5" rx="1.2"/><rect x="9.5" y="16" width="5" height="5" rx="1.2" opacity=".3"/><rect x="16" y="16" width="5" height="5" rx="1.2" opacity=".5"/></svg>',
  trends:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18"/><path d="M4 15l5-5 4 3 7-7"/><path d="M15 6h5v5"/></svg>',
  summary:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>',
+ ask:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12.5a7.5 7.5 0 0 1-11.2 6.5L4 20l1.1-4.3A7.5 7.5 0 1 1 20 12.5z"/><path d="M12 8.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="currentColor" stroke="none"/></svg>',
  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>'
 };
 function renderTabs(){
- const tabs=[['today','Log'],['calendar','Calendar'],['trends','Trends'],['summary','Summary'],['settings','Settings']];
+ const tabs=[['today','Log'],['calendar','Calendar'],['trends','Trends'],['summary','Summary'],['ask','Ask AI'],['settings','Settings']];
  $('#tabs').innerHTML=tabs.map(([k,l])=>`<button class="tab" data-act="tab" data-v="${k}" ${ui.tab===k||(ui.tab==='setup'&&k==='settings')||(ui.tab==='report'&&k==='summary')?'aria-current="page"':''}>${ICON[k]}${l}</button>`).join('');
  $('#who').textContent=S.example?'Example data':(S.profile.name||'');
 }
@@ -769,8 +770,8 @@ function summarize(keys){
  const hits=GOALS.filter(g=>S.profile.goals[g.k].on).map(g=>{let h=0,t=0;keys.forEach(k=>{const s=evalGoal(g.k,k);if(s==='off'||s==='na'||s==='empty')return;t++;if(s==='hit')h++});return{g,h,t}});
  return{keys,logged,avgKcal:avg('calories'),avgProt:avg('protein'),avgSteps:avg('steps'),avgWater:avg('water'),avgSleep:avg('sleep'),w0:ws[0],w1:ws[ws.length-1],wn:ws.length,lifts,liftTypes,cardioMin,hiitMin,funcMin,otherMin,cheats,rests,skips,perfect,hits};
 }
-function summaryText(s){const n=s.keys.length;
- const nm=S.profile.name?S.profile.name+' · ':'';
+function summaryText(s,anon){const n=s.keys.length;
+ const nm=!anon&&S.profile.name?S.profile.name+' · ':'';
  const range=`${fmtDay(s.keys[0],{month:'short',day:'numeric'})}–${fmtDay(s.keys[s.keys.length-1],{month:'short',day:'numeric'})}`;
  const L=[`${nm}${n}-day summary (${range})`];
  if(s.wn>=2)L.push(`Weight: ${fmt1(kgTo(s.w0))} → ${fmt1(kgTo(s.w1))} ${wu()} (${s.w1-s.w0>0?'+':''}${fmt1(kgTo(s.w1)-kgTo(s.w0))})`);
@@ -840,6 +841,56 @@ function viewReport(){
  </tbody></table></div><p class="small muted" style="margin:0">Green cells hit the goal, amber cells were under or over.</p></section>`;
  const notes=keys.filter(k=>day(k)&&day(k).notes);
  if(notes.length)h+=`<section class="card rep"><h2>Notes</h2><div class="list">${notes.map(k=>`<div class="li"><div class="name"><div class="sub">${fmtDay(k)}</div><div>${esc(day(k).notes)}</div></div></div>`).join('')}</div></section>`;
+ return h;
+}
+
+
+/* ask ai */
+const PROVIDERS=[['claude','Claude','https://claude.ai/new'],['chatgpt','ChatGPT','https://chatgpt.com/'],['gemini','Gemini','https://gemini.google.com/app']];
+const PRESETS=['How am I doing overall, and what is the one thing I should change next week?','Why is my weight not moving the way I expect?','Where am I falling short on protein, and what easy foods would fix it?','Plan tomorrow\'s meals to hit my calorie and protein goals using foods I already eat.','Am I recovering enough? Look at sleep, rest days and training load.','Which habits are slipping, and on which days of the week?'];
+const csvq=v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+function askKeys(){if(ui.askRange==='all')return keysBetween(firstDate(),todayKey());return rangeKeys(ui.askRange)}
+function loggedCount(){return Object.keys(S.days).filter(k=>hasData(S.days[k])&&S.days[k].status!=='skip').length}
+function buildPrompt(keys,q){
+ const g=S.profile.goals,s=summarize(keys),rb=realBurn(),n=loggedCount();
+ const goalsTxt=GOALS.filter(x=>g[x.k].on).map(x=>{const gg=g[x.k];return x.type==='range'?`${x.label} ${gg.min}-${gg.max}${x.unit?' '+x.unit:''}`:x.type==='min'?`${x.label} at least ${gg.min}${x.unit?' '+x.unit:''}`:`Lifting ${gg.perWeek} days a week`}).join('; ');
+ const c=v=>v==null?'':(typeof v==='number'?Math.round(v*10)/10:v);
+ const rows=keys.filter(k=>hasData(day(k))).map(k=>{const d=day(k),sc=dayScore(k);
+  const foods=(d.food||[]).map(f=>f.name+(f.qty!==1?' x'+f.qty:'')+(f.cheat?' (cheat)':'')).join('; ');
+  const other=[...(d.hiit||[]).map(x=>'HIIT '+(x.type||'')),...(d.func||[]).map(x=>'Functional '+(x.type||'')),...(d.other||[]).map(x=>x.type||'Other'),...(d.cardio||[]).map(x=>x.type||'Cardio')].filter(Boolean).join('; ');
+  return[k,d.status||'normal',d.weight!=null?r1(kgTo(d.weight)):'',c(val(d,'calories')),c(val(d,'protein')),c(val(d,'water')),c(val(d,'steps')),d.lift&&d.lift.type?d.lift.type:'',d.lift&&d.lift.type?c(d.lift.min):'',c(val(d,'cardio')),c(val(d,'hiit')),c(val(d,'func')),c(sumMin(d.other)),c(d.sleep),sc.total?sc.hits+'/'+sc.total:'',csvq(other),csvq(foods),csvq(d.notes||'')].join(',')});
+ const lifts=keys.filter(k=>day(k)&&day(k).lift&&(day(k).lift.exercises||[]).some(e=>e.name)).map(k=>k+': '+day(k).lift.exercises.filter(e=>e.name).map(e=>e.name+' '+e.sets.map(x=>`${x.reps??'?'}x${x.wt??'?'}`).join(' ')).join('; '));
+ const cks=keys.filter(k=>day(k)&&day(k).meas&&Object.keys(day(k).meas).length).map(k=>{const m=day(k).meas;return k+': '+[...COMP.map(([a,l])=>m[a]!=null?`${l} ${m[a]}%`:''),...[...MEAS,...MEAS_OLD].map(([a,l])=>m[a]!=null?`${l} ${m[a]} ${S.profile.lUnit}`:'')].filter(Boolean).join(', ')});
+ return[`I track my health in an app called Bold Body Agenda. Act as my coach.`,
+ `Use the data below exactly as logged. Calorie and protein totals come from my own food entries, so don't re-estimate them. On rest days, activity goals didn't apply; skip days are left out. Weight is in ${wu()}.`,
+ `Answer with specific, practical advice that points to dates and numbers. If the data can't support a conclusion, say so and tell me what to log to find out.`+(n<21?` I have only ${n} days logged so far, so treat trends as early.`:''),
+ ``,`MY QUESTION`,q,``,`GOALS`,goalsTxt,``,`SUMMARY`,summaryText(s,true),
+ rb.ready?`Estimated real daily burn from my intake vs weight trend over the last 28 days: about ${fmtN(Math.round(rb.tdee/10)*10)} kcal.`:'',
+ ``,`DAILY LOG (CSV)`,`date,day_type,weight,kcal,protein_g,water_l,steps,lifting,lifting_min,cardio_min,hiit_min,functional_min,other_min,sleep_h,goals_hit,activities,foods,notes`,...(rows.length?rows:['(nothing logged in this range)']),
+ ...(lifts.length?[``,`LIFTING DETAIL`,...lifts]:[]),
+ ...(cks.length?[``,`WEEKLY CHECK-INS`,...cks]:[])].join('\n');
+}
+function viewAsk(){
+ const n=loggedCount(),ready=n>=21,keys=askKeys();
+ const q=ui.askQ||PRESETS[0];
+ const prompt=buildPrompt(keys,q);ui.askPrompt=prompt;
+ const pv=S.profile.ai||'claude';
+ let h=banners();
+ h+=`<div><div class="eyebrow">Ask AI</div><h1>Ask about your data</h1></div>`;
+ h+=`<section class="card"><div class="card-h"><h2>${ready?'Ready for a full review':'Building your baseline'}</h2><span class="meta num">${Math.min(n,21)}/21 days</span></div>
+ <div class="bar"><i style="width:${Math.min(100,n/21*100)}%;background:var(--accent)"></i></div>
+ <p class="small muted" style="margin:0">${ready?'You have 3 weeks or more logged, so your weight trend and real burn mean something now.':`Weight swings day to day with water and salt, so the numbers only make sense after about 3 weeks. You can ask now, but treat the answer as an early read. ${21-n} more day${21-n===1?'':'s'} to go.`}</p></section>`;
+ h+=`<section class="card"><h2>Your question</h2>
+ <div class="chips">${PRESETS.map((p,i)=>`<button class="pill" data-act="askpreset" data-i="${i}" aria-pressed="${q===p}">${esc(p.split(/[,?]/)[0])}</button>`).join('')}</div>
+ <textarea class="inp" id="ask-q" data-field="ask.q" placeholder="Or type your own question">${esc(q)}</textarea>
+ <div><div class="eyebrow" style="margin-bottom:6px">Data to include</div>
+ <div class="seg four" role="group" aria-label="Data range">${[[7,'7 days'],[21,'21 days'],[30,'30 days'],['all','All']].map(([v,l])=>`<button data-act="askrange" data-v="${v}" aria-pressed="${ui.askRange===v}">${l}</button>`).join('')}</div></div></section>`;
+ h+=`<section class="card"><h2>Send to an AI chat</h2>
+ <p class="small muted" style="margin:0">Tap one: it copies your question and data, then opens the chat. Start a new chat and paste. Free accounts work.</p>
+ <div class="row">${PROVIDERS.map(([k,l,u])=>`<a class="btn ${pv===k?'pri':''}" href="${u}" target="_blank" rel="noopener" data-act="askcopy" data-v="${k}">Copy &amp; open ${l}</a>`).join('')}</div>
+ ${ui.askFallback?`<p class="small" style="margin:0">Copying isn't allowed here. Select all the text below, copy it, then open the chat.</p><textarea class="inp" id="ask-out" readonly style="min-height:140px;font-family:var(--f-num);font-size:12px">${esc(prompt)}</textarea>`:''}
+ <details><summary>See exactly what gets shared</summary><pre class="share" style="margin-top:8px">${esc(prompt)}</pre></details>
+ <p class="small muted" style="margin:0">Only what you paste leaves your phone. Your name isn't included.</p></section>`;
  return h;
 }
 
@@ -932,11 +983,11 @@ function render(){
  if(ui.tab==='settings')ensureFonts(Object.values(FONTS).map(f=>f.gf).filter(Boolean));
  renderTabs();
  const v=$('#view');
- v.innerHTML=ui.tab==='today'?viewToday():ui.tab==='calendar'?viewCalendar():ui.tab==='trends'?viewTrends():ui.tab==='summary'?viewSummary():ui.tab==='report'?viewReport():ui.tab==='setup'?viewSetup():viewSettings();
+ v.innerHTML=ui.tab==='today'?viewToday():ui.tab==='calendar'?viewCalendar():ui.tab==='trends'?viewTrends():ui.tab==='summary'?viewSummary():ui.tab==='ask'?viewAsk():ui.tab==='report'?viewReport():ui.tab==='setup'?viewSetup():viewSettings();
  if(ui.tab==='calendar'){const w=$('#hmwrap');if(w)w.scrollLeft=w.scrollWidth}
  renderSheet();
 }
-function go(tab){ui.tab=tab;ui.confirm=null;ui.backupText='';render();window.scrollTo(0,0)}
+function go(tab){ui.tab=tab;ui.confirm=null;ui.backupText='';ui.askFallback=false;render();window.scrollTo(0,0)}
 function commit(){save();render()}
 
 /* ---------- actions ---------- */
@@ -978,6 +1029,9 @@ document.addEventListener('click',async e=>{
   case'delex':dayW(dk).lift.exercises.splice(+t.dataset.i,1);commit();break;
   case'addset':{const ex=dayW(dk).lift.exercises[+t.dataset.i];const last=ex.sets[ex.sets.length-1]||{};ex.sets.push({reps:last.reps??null,wt:last.wt??null});commit();break}
   case'delset':dayW(dk).lift.exercises[+t.dataset.i].sets.splice(+t.dataset.j,1);commit();break;
+  case'askpreset':ui.askQ=PRESETS[+t.dataset.i];ui.askFallback=false;render();break;
+  case'askrange':ui.askRange=t.dataset.v==='all'?'all':+t.dataset.v;ui.askFallback=false;render();break;
+  case'askcopy':{const qi=$('#ask-q');if(qi)ui.askQ=qi.value.trim();const txt=buildPrompt(askKeys(),ui.askQ||PRESETS[0]);S.profile.ai=t.dataset.v;save();let ok=false;try{const pr=navigator.clipboard&&navigator.clipboard.writeText(txt);if(pr){pr.then(()=>toast('Copied. Paste it into a new chat.')).catch(()=>{e.preventDefault&&0;ui.askFallback=true;render();const o=$('#ask-out');if(o){o.focus();o.select()}})}else{ui.askFallback=true;setTimeout(render,0)}}catch(err){ui.askFallback=true;setTimeout(render,0)}break}
   case'calf':ui.calFilter=t.dataset.v;render();break;
   case'range':ui.range=+t.dataset.v;render();break;
   case'period':ui.period=t.dataset.v==='custom'?'custom':+t.dataset.v;render();break;
@@ -1000,6 +1054,7 @@ document.addEventListener('change',e=>{
  const dk=ui.date,p=f.split('.'),v=t.type==='checkbox'?t.checked:t.value;
  if(p[0]==='profile'){S.profile[p[1]]=v;save();renderTabs();return}
  if(p[0]==='goal'){const gg=S.profile.goals[p[1]];if(p[2]==='on')gg.on=v;else{const n=num(v);if(n!=null)gg[p[2]]=n}save();if(ui.tab!=='setup')render();return}
+ if(p[0]==='ask'){ui.askQ=v;ui.askFallback=false;return}
  if(p[0]==='range'){if(v){ui[p[1]]=v}render();return}
  if(p[0]==='food'){const fd=S.foods.find(x=>x.id===p[1]);if(!fd)return;if(p[2]==='kcal'||p[2]==='protein'){const n=num(v);if(n!=null)fd[p[2]]=n}else fd[p[2]]=v;save();return}
  const d=dayW(dk);
