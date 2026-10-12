@@ -7,8 +7,7 @@ A simple, private tracker for the daily basics: food, protein, water, steps, car
 
 It's one HTML file with no account, no server, no tracking and no ads.
 
-**Open the app:** https://YOUR-USERNAME.github.io/squares/
-
+**Open the app:** https://ramaditya524.github.io/workout_aftermath/
 ---
 
 ## Set it up on your phone
